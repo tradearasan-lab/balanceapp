@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Transaction, TransactionType } from "@/types";
 import { addTransaction, getTransactions } from "@/lib/localStorage";
@@ -14,6 +14,8 @@ export default function GuestCalculator() {
   const [amount, setAmount] = useState("");
   const [comment, setComment] = useState("");
   const [loggedIn, setLoggedIn] = useState(false);
+  const [showSticky, setShowSticky] = useState(false);
+  const balanceRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setTransactions(getTransactions());
@@ -22,10 +24,24 @@ export default function GuestCalculator() {
     });
   }, [supabase]);
 
+  useEffect(() => {
+    const el = balanceRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowSticky(!entry.isIntersecting),
+      { threshold: 0 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   const balance = transactions.reduce(
     (sum, tx) => sum + (tx.type === "income" ? tx.amount : -tx.amount),
     0
   );
+
+  const balanceFormatted =
+    (balance >= 0 ? "" : "−") + Math.abs(balance).toLocaleString("ru-RU");
 
   const handleAdd = useCallback(
     (type: TransactionType) => {
@@ -54,11 +70,60 @@ export default function GuestCalculator() {
     });
   }
 
+  const authButton = loggedIn ? (
+    <Link
+      href="/dashboard"
+      className="rounded-lg px-3 py-1.5 text-xs font-medium transition"
+      style={{ backgroundColor: "#1a1a1a", color: "#22c55e" }}
+    >
+      Мои группы →
+    </Link>
+  ) : (
+    <button
+      onClick={handleGoogleLogin}
+      className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition"
+      style={{ backgroundColor: "#1a1a1a", color: "#999" }}
+    >
+      <svg className="h-3 w-3" viewBox="0 0 24 24">
+        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
+        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+      </svg>
+      Войти
+    </button>
+  );
+
   return (
     <div
       className="mx-auto flex min-h-screen max-w-md flex-col px-4 pb-8 pt-6"
       style={{ backgroundColor: "#0f0f0f" }}
     >
+      {/* Sticky header */}
+      <div
+        className="fixed left-0 right-0 top-0 z-50 flex items-center justify-center transition-opacity duration-300"
+        style={{
+          height: 48,
+          backgroundColor: "#0f0f0f",
+          boxShadow: showSticky ? "0 1px 8px rgba(0,0,0,0.5)" : "none",
+          opacity: showSticky ? 1 : 0,
+          pointerEvents: showSticky ? "auto" : "none",
+        }}
+      >
+        <div className="mx-auto flex w-full max-w-md items-center justify-between px-4">
+          <span className="text-xs font-semibold" style={{ color: "#777" }}>
+            BalanceApp
+          </span>
+          <span
+            className="text-sm font-bold"
+            style={{ color: balance >= 0 ? "#22c55e" : "#ef4444" }}
+          >
+            {balanceFormatted}
+          </span>
+          {authButton}
+        </div>
+      </div>
+
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
@@ -69,40 +134,17 @@ export default function GuestCalculator() {
             Личный учёт финансов
           </p>
         </div>
-        {loggedIn ? (
-          <Link
-            href="/dashboard"
-            className="rounded-lg px-3 py-1.5 text-xs font-medium transition"
-            style={{ backgroundColor: "#1a1a1a", color: "#22c55e" }}
-          >
-            Мои группы →
-          </Link>
-        ) : (
-          <button
-            onClick={handleGoogleLogin}
-            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition"
-            style={{ backgroundColor: "#1a1a1a", color: "#999" }}
-          >
-            <svg className="h-3 w-3" viewBox="0 0 24 24">
-              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
-              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
-              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-            </svg>
-            Войти
-          </button>
-        )}
+        {authButton}
       </div>
 
       {/* Balance */}
-      <div className="mb-6 text-center">
+      <div ref={balanceRef} className="mb-6 text-center">
         <p className="text-sm" style={{ color: "#777" }}>Баланс</p>
         <p
           className="mt-1 text-4xl font-bold"
           style={{ color: balance >= 0 ? "#ffffff" : "#ef4444" }}
         >
-          {balance >= 0 ? "" : "−"}
-          {Math.abs(balance).toLocaleString("ru-RU")}
+          {balanceFormatted}
         </p>
       </div>
 
