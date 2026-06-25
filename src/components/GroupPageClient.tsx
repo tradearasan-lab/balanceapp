@@ -28,6 +28,8 @@ export default function GroupPageClient({
   const [comment, setComment] = useState("");
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [clearing, setClearing] = useState(false);
 
   const income = transactions.reduce(
     (s, t) => s + (t.type === "income" ? t.amount : 0),
@@ -64,6 +66,19 @@ export default function GroupPageClient({
     }
   }
 
+  async function handleClearTransactions() {
+    setClearing(true);
+    try {
+      const res = await fetch(`/api/group/${group.id}/clear`, { method: "DELETE" });
+      if (res.ok) {
+        setTransactions([]);
+        setShowClearConfirm(false);
+      }
+    } finally {
+      setClearing(false);
+    }
+  }
+
   async function handleCopyInvite() {
     const url = `${window.location.origin}/join/${group.invite_token}`;
     await navigator.clipboard.writeText(url);
@@ -72,9 +87,9 @@ export default function GroupPageClient({
   }
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col px-4 pb-8 pt-6">
-      {/* Header */}
-      <div className="mb-6 flex items-center gap-3">
+    <div className="mx-auto flex h-[100dvh] max-w-md flex-col overflow-hidden px-4 pt-6">
+      {/* Header — fixed */}
+      <div className="mb-4 flex shrink-0 items-center gap-3">
         <Link
           href="/dashboard"
           className="flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-800 text-zinc-400 transition hover:bg-zinc-700"
@@ -96,8 +111,8 @@ export default function GroupPageClient({
         </button>
       </div>
 
-      {/* Balance Card */}
-      <div className="mb-4 rounded-2xl bg-gradient-to-br from-zinc-800 to-zinc-900 p-5">
+      {/* Balance Card — fixed */}
+      <div className="mb-3 shrink-0 rounded-2xl bg-gradient-to-br from-zinc-800 to-zinc-900 p-5">
         <p className="text-sm text-zinc-400">Баланс группы</p>
         <p
           className={`mt-1 text-3xl font-bold ${
@@ -127,9 +142,9 @@ export default function GroupPageClient({
         </div>
       </div>
 
-      {/* Action buttons — only owner */}
+      {/* Action buttons — fixed, only owner */}
       {isOwner && (
-        <div className="mb-4 flex gap-2">
+        <div className="mb-3 flex shrink-0 gap-2">
           <button
             onClick={() => openModal("income")}
             className="flex-1 rounded-xl bg-emerald-600/10 py-3 text-sm font-medium text-emerald-400 transition hover:bg-emerald-600/20"
@@ -145,51 +160,96 @@ export default function GroupPageClient({
         </div>
       )}
 
-      <AdSlot className="mb-4" />
+      <AdSlot className="mb-3 shrink-0" />
 
-      {/* Transactions */}
-      <div className="mb-3 flex items-center justify-between">
+      {/* History header — fixed */}
+      <div className="mb-2 flex shrink-0 items-center justify-between">
         <h2 className="text-sm font-medium text-zinc-400">История</h2>
-        <span className="text-xs text-zinc-600">
-          {transactions.length} операций
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-zinc-600">
+            {transactions.length} операций
+          </span>
+          {isOwner && transactions.length > 0 && (
+            <button
+              onClick={() => setShowClearConfirm(true)}
+              className="rounded-lg px-2.5 py-1 text-xs transition"
+              style={{ backgroundColor: "rgba(239,68,68,0.1)", color: "#ef4444" }}
+            >
+              Очистить
+            </button>
+          )}
+        </div>
       </div>
 
-      {transactions.length === 0 ? (
-        <p className="py-8 text-center text-sm text-zinc-500">
-          Пока нет операций
-        </p>
-      ) : (
-        <div className="flex-1 space-y-2">
-          {transactions.map((tx) => (
-            <div
-              key={tx.id}
-              className="rounded-xl bg-zinc-900 px-4 py-3"
-            >
-              <div className="flex items-center justify-between">
-                <span
-                  className={`text-base font-semibold ${
-                    tx.type === "income" ? "text-emerald-400" : "text-red-400"
-                  }`}
-                >
-                  {tx.type === "income" ? "+" : "−"}
-                  {tx.amount.toLocaleString("ru-RU")}
-                </span>
-                <span className="text-xs text-zinc-600">
-                  {new Date(tx.created_at).toLocaleDateString("ru-RU", {
-                    day: "numeric",
-                    month: "short",
-                  })}
-                </span>
+      {/* Scrollable transaction list */}
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-4" style={{ WebkitOverflowScrolling: "touch" }}>
+        {transactions.length === 0 ? (
+          <p className="py-8 text-center text-sm text-zinc-500">
+            Пока нет операций
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {transactions.map((tx) => (
+              <div
+                key={tx.id}
+                className="rounded-xl bg-zinc-900 px-4 py-3"
+              >
+                <div className="flex items-center justify-between">
+                  <span
+                    className={`text-base font-semibold ${
+                      tx.type === "income" ? "text-emerald-400" : "text-red-400"
+                    }`}
+                  >
+                    {tx.type === "income" ? "+" : "−"}
+                    {tx.amount.toLocaleString("ru-RU")}
+                  </span>
+                  <span className="text-xs text-zinc-600">
+                    {new Date(tx.created_at).toLocaleDateString("ru-RU", {
+                      day: "numeric",
+                      month: "short",
+                    })}
+                  </span>
+                </div>
+                {tx.comment && (
+                  <p className="mt-0.5 text-sm text-zinc-500">{tx.comment}</p>
+                )}
+                <p className="mt-0.5 text-xs text-zinc-600">
+                  {tx.profiles?.name ?? tx.profiles?.email ?? "—"}
+                </p>
               </div>
-              {tx.comment && (
-                <p className="mt-0.5 text-sm text-zinc-500">{tx.comment}</p>
-              )}
-              <p className="mt-0.5 text-xs text-zinc-600">
-                {tx.profiles?.name ?? tx.profiles?.email ?? "—"}
-              </p>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Clear confirmation modal */}
+      {showClearConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}>
+          <div className="w-full max-w-sm rounded-2xl p-6" style={{ backgroundColor: "#1a1a1a" }}>
+            <h3 className="mb-2 text-lg font-semibold" style={{ color: "#fff" }}>
+              Очистить транзакции?
+            </h3>
+            <p className="mb-6 text-sm" style={{ color: "#999" }}>
+              Все транзакции будут удалены навсегда. Продолжить?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowClearConfirm(false)}
+                className="flex-1 rounded-xl py-3 text-sm font-medium transition"
+                style={{ backgroundColor: "#252525", color: "#999" }}
+              >
+                Отмена
+              </button>
+              <button
+                onClick={handleClearTransactions}
+                disabled={clearing}
+                className="flex-1 rounded-xl py-3 text-sm font-medium transition disabled:opacity-50"
+                style={{ backgroundColor: "#ef4444", color: "#fff" }}
+              >
+                {clearing ? "Удаляем..." : "Удалить всё"}
+              </button>
             </div>
-          ))}
+          </div>
         </div>
       )}
 

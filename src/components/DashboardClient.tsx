@@ -11,7 +11,7 @@ import CreateGroupModal from "./CreateGroupModal";
 import PlanBadge from "./PlanBadge";
 import AdSlot from "./AdSlot";
 
-const MAX_FREE_GROUPS = 1;
+const MAX_FREE_GROUPS = 5;
 
 interface Props {
   userName: string;
@@ -93,11 +93,11 @@ export default function DashboardClient({ userName, avatarUrl }: Props) {
 
   return (
     <div
-      className="mx-auto flex min-h-screen max-w-md flex-col px-4 pb-8 pt-6"
+      className="mx-auto flex h-[100dvh] max-w-md flex-col overflow-hidden px-4 pt-6"
       style={{ backgroundColor: "#0f0f0f" }}
     >
-      {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
+      {/* Header — fixed */}
+      <div className="mb-4 flex shrink-0 items-center justify-between">
         <div className="flex items-center gap-3">
           {avatarUrl ? (
             <Image
@@ -142,19 +142,19 @@ export default function DashboardClient({ userName, avatarUrl }: Props) {
         </div>
       </div>
 
-      <AdSlot className="mb-4" />
+      <AdSlot className="mb-3 shrink-0" />
 
       {error && (
         <div
-          className="mb-4 rounded-xl p-3 text-sm"
+          className="mb-3 shrink-0 rounded-xl p-3 text-sm"
           style={{ backgroundColor: "rgba(239,68,68,0.1)", color: "#ef4444" }}
         >
           {error}
         </div>
       )}
 
-      {/* Groups header */}
-      <div className="mb-4 flex items-center justify-between">
+      {/* Groups header — fixed */}
+      <div className="mb-3 flex shrink-0 items-center justify-between">
         <h2 className="text-sm font-medium" style={{ color: "#999" }}>
           Мои группы
         </h2>
@@ -163,15 +163,17 @@ export default function DashboardClient({ userName, avatarUrl }: Props) {
         </span>
       </div>
 
+      {/* Scrollable content */}
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-4" style={{ WebkitOverflowScrolling: "touch" }}>
       {loading ? (
-        <div className="flex flex-1 items-center justify-center">
+        <div className="flex flex-1 items-center justify-center py-12">
           <div
             className="h-6 w-6 animate-spin rounded-full border-2"
             style={{ borderColor: "#333", borderTopColor: "#22c55e" }}
           />
         </div>
       ) : groups.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center text-center">
+        <div className="flex flex-1 flex-col items-center justify-center py-12 text-center">
           <div className="mb-3 text-4xl">📊</div>
           <p className="mb-1 text-sm font-medium" style={{ color: "#999" }}>
             У вас пока нет групп
@@ -188,7 +190,7 @@ export default function DashboardClient({ userName, avatarUrl }: Props) {
           </button>
         </div>
       ) : (
-        <div className="flex-1 space-y-2">
+        <div className="space-y-2">
           {groups.map((group) => (
             <div key={group.id}>
               {renamingId === group.id ? (
@@ -274,6 +276,17 @@ export default function DashboardClient({ userName, avatarUrl }: Props) {
         </div>
       )}
 
+      {/* Create group button (when groups exist and limit allows) */}
+      {canCreateMore && groups.length > 0 && !loading && (
+        <button
+          onClick={() => setModalOpen(true)}
+          className="mt-4 w-full rounded-xl py-3 text-sm font-medium transition"
+          style={{ backgroundColor: "#22c55e", color: "#fff" }}
+        >
+          + Создать группу
+        </button>
+      )}
+
       {/* Limit info for Free */}
       {!canCreateMore && !loading && (
         <div
@@ -281,13 +294,14 @@ export default function DashboardClient({ userName, avatarUrl }: Props) {
           style={{ backgroundColor: "#1a1a1a" }}
         >
           <p className="text-sm" style={{ color: "#999" }}>
-            На Free-плане нельзя удалить или создать новую группу.
+            Достигнут лимит {MAX_FREE_GROUPS} групп на Free-плане.
           </p>
           <p className="mt-1 text-xs" style={{ color: "#666" }}>
             Для неограниченных групп перейдите на Pro.
           </p>
         </div>
       )}
+      </div>{/* end scrollable */}
 
       <CreateGroupModal
         open={modalOpen}

@@ -29,3 +29,7 @@ export function deleteTransaction(id: string): Transaction[] {
   saveTransactions(list);
   return list;
 }
+
+export function clearTransactions(): void {
+  localStorage.removeItem(STORAGE_KEY);
+}

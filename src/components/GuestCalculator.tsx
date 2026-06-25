@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Transaction, TransactionType } from "@/types";
-import { addTransaction, getTransactions } from "@/lib/localStorage";
+import { addTransaction, clearTransactions, getTransactions } from "@/lib/localStorage";
 import { createClient } from "@/lib/supabase";
 import TransactionList from "./TransactionList";
 import AdSlot from "./AdSlot";
@@ -14,8 +14,7 @@ export default function GuestCalculator() {
   const [amount, setAmount] = useState("");
   const [comment, setComment] = useState("");
   const [loggedIn, setLoggedIn] = useState(false);
-  const [showSticky, setShowSticky] = useState(false);
-  const balanceRef = useRef<HTMLDivElement>(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   useEffect(() => {
     setTransactions(getTransactions());
@@ -23,17 +22,6 @@ export default function GuestCalculator() {
       if (session) setLoggedIn(true);
     });
   }, [supabase]);
-
-  useEffect(() => {
-    const el = balanceRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => setShowSticky(!entry.isIntersecting),
-      { threshold: 0 }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
 
   const balance = transactions.reduce(
     (sum, tx) => sum + (tx.type === "income" ? tx.amount : -tx.amount),
@@ -96,36 +84,11 @@ export default function GuestCalculator() {
 
   return (
     <div
-      className="mx-auto flex min-h-screen max-w-md flex-col px-4 pb-8 pt-6"
+      className="mx-auto flex h-[100dvh] max-w-md flex-col overflow-hidden px-4 pt-6"
       style={{ backgroundColor: "#0f0f0f" }}
     >
-      {/* Sticky header */}
-      <div
-        className="fixed left-0 right-0 top-0 z-50 flex items-center justify-center transition-opacity duration-300"
-        style={{
-          height: 48,
-          backgroundColor: "#0f0f0f",
-          boxShadow: showSticky ? "0 1px 8px rgba(0,0,0,0.5)" : "none",
-          opacity: showSticky ? 1 : 0,
-          pointerEvents: showSticky ? "auto" : "none",
-        }}
-      >
-        <div className="mx-auto flex w-full max-w-md items-center justify-between px-4">
-          <span className="text-xs font-semibold" style={{ color: "#777" }}>
-            BalanceApp
-          </span>
-          <span
-            className="text-sm font-bold"
-            style={{ color: balance >= 0 ? "#22c55e" : "#ef4444" }}
-          >
-            {balanceFormatted}
-          </span>
-          {authButton}
-        </div>
-      </div>
-
-      {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
+      {/* Header — fixed */}
+      <div className="mb-4 flex shrink-0 items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: "#ffffff" }}>
             BalanceApp
@@ -137,8 +100,8 @@ export default function GuestCalculator() {
         {authButton}
       </div>
 
-      {/* Balance */}
-      <div ref={balanceRef} className="mb-6 text-center">
+      {/* Balance — fixed */}
+      <div ref={balanceRef} className="mb-4 shrink-0 text-center">
         <p className="text-sm" style={{ color: "#777" }}>Баланс</p>
         <p
           className="mt-1 text-4xl font-bold"
@@ -148,14 +111,14 @@ export default function GuestCalculator() {
         </p>
       </div>
 
-      {/* Input */}
+      {/* Input — fixed */}
       <input
         type="number"
         inputMode="decimal"
         placeholder="0"
         value={amount}
         onChange={(e) => setAmount(e.target.value)}
-        className="mb-3 w-full rounded-xl px-4 py-4 text-center text-2xl font-semibold outline-none"
+        className="mb-2 w-full shrink-0 rounded-xl px-4 py-3 text-center text-2xl font-semibold outline-none"
         style={{ backgroundColor: "#1a1a1a", color: "#ffffff", border: "none" }}
       />
       <input
@@ -163,42 +126,89 @@ export default function GuestCalculator() {
         placeholder="Комментарий..."
         value={comment}
         onChange={(e) => setComment(e.target.value)}
-        className="mb-4 w-full rounded-xl px-4 py-3 text-center text-sm outline-none"
+        className="mb-3 w-full shrink-0 rounded-xl px-4 py-2.5 text-center text-sm outline-none"
         style={{ backgroundColor: "#1a1a1a", color: "#ffffff", border: "none" }}
       />
 
-      {/* Action buttons */}
-      <div className="mb-6 flex gap-3">
+      {/* Action buttons — fixed */}
+      <div className="mb-3 flex shrink-0 gap-3">
         <button
           onClick={() => handleAdd("expense")}
-          className="flex-1 rounded-xl py-4 text-base font-semibold transition active:scale-[0.98]"
+          className="flex-1 rounded-xl py-3.5 text-base font-semibold transition active:scale-[0.98]"
           style={{ backgroundColor: "rgba(239,68,68,0.1)", color: "#ef4444" }}
         >
           − Расход
         </button>
         <button
           onClick={() => handleAdd("income")}
-          className="flex-1 rounded-xl py-4 text-base font-semibold transition active:scale-[0.98]"
+          className="flex-1 rounded-xl py-3.5 text-base font-semibold transition active:scale-[0.98]"
           style={{ backgroundColor: "rgba(34,197,94,0.1)", color: "#22c55e" }}
         >
           + Доход
         </button>
       </div>
 
-      <AdSlot className="mb-4" />
+      <AdSlot className="mb-3 shrink-0" />
 
-      {/* History */}
-      <div className="mb-3 flex items-center justify-between">
+      {/* History header — fixed */}
+      <div className="mb-2 flex shrink-0 items-center justify-between">
         <h2 className="text-sm font-medium" style={{ color: "#999" }}>
           История
         </h2>
-        <span className="text-xs" style={{ color: "#555" }}>
-          {transactions.length} операций
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs" style={{ color: "#555" }}>
+            {transactions.length} операций
+          </span>
+          {transactions.length > 0 && (
+            <button
+              onClick={() => setShowClearConfirm(true)}
+              className="rounded-lg px-2.5 py-1 text-xs transition"
+              style={{ backgroundColor: "rgba(239,68,68,0.1)", color: "#ef4444" }}
+            >
+              Очистить
+            </button>
+          )}
+        </div>
       </div>
-      <div className="flex-1">
+
+      {/* Scrollable transaction list */}
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-4" style={{ WebkitOverflowScrolling: "touch" }}>
         <TransactionList transactions={transactions} />
       </div>
+
+      {/* Clear confirmation modal */}
+      {showClearConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}>
+          <div className="w-full max-w-sm rounded-2xl p-6" style={{ backgroundColor: "#1a1a1a" }}>
+            <h3 className="mb-2 text-lg font-semibold" style={{ color: "#fff" }}>
+              Очистить историю?
+            </h3>
+            <p className="mb-6 text-sm" style={{ color: "#999" }}>
+              Все транзакции будут удалены навсегда. Продолжить?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowClearConfirm(false)}
+                className="flex-1 rounded-xl py-3 text-sm font-medium transition"
+                style={{ backgroundColor: "#252525", color: "#999" }}
+              >
+                Отмена
+              </button>
+              <button
+                onClick={() => {
+                  clearTransactions();
+                  setTransactions([]);
+                  setShowClearConfirm(false);
+                }}
+                className="flex-1 rounded-xl py-3 text-sm font-medium transition"
+                style={{ backgroundColor: "#ef4444", color: "#fff" }}
+              >
+                Удалить всё
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
